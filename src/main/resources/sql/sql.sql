@@ -38,21 +38,14 @@ CREATE TABLE notas(
 ra_aluno			CHAR(13)	NOT NULL,
 codigo_disciplina	VARCHAR(255)	NOT NULL,
 codigo_avaliacao	INT	NOT NULL,
-nota				DECIMAL	NOT NULL
+nota				DECIMAL(7,1)	NOT NULL
 PRIMARY KEY(ra_aluno, codigo_disciplina, codigo_avaliacao)
 FOREIGN KEY(ra_aluno) REFERENCES aluno(ra),
 FOREIGN KEY(codigo_disciplina) REFERENCES disciplina(codigo),
 FOREIGN KEY(codigo_avaliacao) REFERENCES avaliacao(codigo)
 )
 GO
-CREATE TABLE matricula (
-codigo_disciplina		VARCHAR(255)			NOT NULL,
-ra_aluno				CHAR(13)				NOT NULL
-PRIMARY KEY(ra_aluno, codigo_disciplina)
-FOREIGN KEY(ra_aluno) REFERENCES aluno(ra),
-FOREIGN KEY(codigo_disciplina) REFERENCES disciplina(codigo)
-)
-GO
+
 -- Inserçoes
 INSERT INTO disciplina VALUES
 ('4203-010', 'Arquitetura e Organização de Computadores', 'AOC', 'tarde', 80),
@@ -87,113 +80,171 @@ INSERT INTO aluno VALUES
 ('1110482012020', 'Vinicius')
 GO
 INSERT INTO notas VALUES
-('1110482012020','4203-010', 1, 10),
-('1110482012020','4203-010', 2, 8)
+('1110482012020','4203-010', 1, 10.0),
+('1110482012020','4203-010', 2, 8.0),
+('1110482012020','4203-010', 4, 8.0)
+GO
+INSERT INTO notas VALUES
+('1110482012016','4203-010', 1, 5.0),
+('1110482012016','4203-010', 2, 5.0),
+('1110482012016','4203-010', 4, 2.0),
+('1110482012016','4208-010', 1, 10.0),
+('1110482012016','4208-010', 2, 8.0),
+('1110482012016','4208-010', 4, 8.0)
+GO
+INSERT INTO notas VALUES
+('1110482012003','4233-005', 1, 9.0),
+('1110482012003','4233-005', 2, 7.0),
+('1110482012003','4233-005', 3, 4.0)
+GO
+INSERT INTO faltas VALUES
+('4203-010','1110482012016', '2022-01-01', 0),
+('4203-010','1110482012016', '2022-01-02', 1),
+('4203-010','1110482012016', '2022-01-03', 0),
+('4203-010','1110482012016', '2022-01-04', 0),
+('4203-010','1110482012016', '2022-01-05', 2),
+('4203-010','1110482012016', '2022-01-06', 0),
+('4203-010','1110482012016', '2022-01-07', 0),
+('4203-010','1110482012016', '2022-01-08', 0),
+('4203-010','1110482012016', '2022-01-09', 0),
+('4203-010','1110482012016', '2022-01-10', 1),
+('4203-010','1110482012016', '2022-01-11', 0),
+('4203-010','1110482012016', '2022-01-12', 1),
+('4203-010','1110482012016', '2022-01-13', 0),
+('4203-010','1110482012016', '2022-01-14', 0),
+('4203-010','1110482012016', '2022-01-15', 2),
+('4203-010','1110482012016', '2022-01-16', 0),
+('4203-010','1110482012016', '2022-01-17', 0),
+('4203-010','1110482012016', '2022-01-18', 0),
+('4203-010','1110482012016', '2022-01-19', 0),
+('4203-010','1110482012016', '2022-01-20', 1)
+GO
+INSERT INTO faltas VALUES
+('4203-010','1110482012020', '2022-01-01', 0),
+('4203-010','1110482012020', '2022-01-02', 1),
+('4203-010','1110482012020', '2022-01-03', 0),
+('4203-010','1110482012020', '2022-01-04', 0),
+('4203-010','1110482012020', '2022-01-05', 2),
+('4203-010','1110482012017', '2022-01-01', 0),
+('4203-010','1110482012017', '2022-01-02', 0)
+
+
+SELECT * FROM notas_turma('4203-010') -- AOC
+SELECT * FROM notas_turma('4208-010') -- LabHW
+SELECT * FROM notas_turma('4233-005') -- LabBD
+
+SELECT * FROM faltas_turma('4203-010') -- AOC
 
 -- NOTAS UDF
 CREATE FUNCTION notas_turma(@codigo_disciplina VARCHAR(255)) 
-RETURNS @table TABLE(ra_aluno INT, nome_aluno VARCHAR(100), nota1 DECIMAL, nota2 DECIMAL, nota3 DECIMAL, nota4 DECIMAL,
-media_final DECIMAL, situacao VARCHAR(100))
+RETURNS @table TABLE(ra_aluno CHAR(13), nome_aluno VARCHAR(100), nota1 DECIMAL(7,2), nota2 DECIMAL(7,2), nota3 DECIMAL(7,2), nota4 DECIMAL(7,2),
+media_final DECIMAL(7,2), situacao VARCHAR(100))
 AS 
 BEGIN
 	DECLARE @ra CHAR(13)
 	DECLARE @nome VARCHAR(100)
 	DECLARE @disc VARCHAR(255)
 	DECLARE @avaliacao INT
-	DECLARE @nota DECIMAL
-	DECLARE @nota_peso DECIMAL
+	DECLARE @nota DECIMAL(7,2)
+	DECLARE @nota_peso DECIMAL(7,2)
 	DECLARE @num_aulas INT
 	DECLARE @total INT
 
 	SELECT @num_aulas = num_aulas FROM disciplina WHERE disciplina.codigo = @codigo_disciplina
 
-	INSERT INTO @table SELECT ra, nome, 0, 0, 0, 0, 0, 0, null FROM aluno
+	INSERT INTO @table SELECT aluno.ra, aluno.nome, 0, 0, 0, 0, 0, null 
+	FROM aluno, notas, disciplina, avaliacao
+	WHERE aluno.ra = notas.ra_aluno
+		AND disciplina.codigo = notas.codigo_disciplina
+		AND notas.codigo_avaliacao = avaliacao.codigo
+		AND disciplina.codigo = @codigo_disciplina
+	GROUP BY aluno.ra, aluno.nome
 
 	DECLARE cursor_notas CURSOR
-	FOR SELECT notas.ra_aluno, aluno.nome, disciplina.codigo, avaliacao.codigo, notas.nota
+	FOR SELECT aluno.ra, aluno.nome, disciplina.codigo, avaliacao.codigo, notas.nota
 	FROM notas, aluno, disciplina, avaliacao
 	WHERE notas.ra_aluno = aluno.ra
-		AND notas.codigo_disciplina = @codigo_disciplina
+		AND notas.codigo_disciplina = disciplina.codigo
 		AND notas.codigo_avaliacao = avaliacao.codigo
-	ORDER BY notas.ra_aluno, notas.codigo_avaliacao
+		AND notas.codigo_disciplina = @codigo_disciplina
+	ORDER BY aluno.ra, avaliacao.codigo
 	OPEN cursor_notas
 	FETCH NEXT FROM cursor_notas INTO @ra, @nome, @disc, @avaliacao, @nota
 
 	WHILE @@FETCH_STATUS = 0
-	BEGIN
+		BEGIN
 
-	IF(@avaliacao = 1)
-	BEGIN
-		IF(@disc = '4213-003' OR @disc = '4213-013')
+		IF(@avaliacao = 1)
 		BEGIN
-			SET @nota_peso = @nota * 0.35
+			IF(@disc = '4213-003' OR @disc = '4213-013')
+			BEGIN
+				SET @nota_peso = @nota * 0.35
+			END
+			IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
+			BEGIN
+				SET @nota_peso = @nota * 0.3
+			END
+			IF(@disc = '4233-005')
+			BEGIN
+				SET @nota_peso = @nota * 0.333
+			END
+			IF(@disc = '5005-220')
+			BEGIN
+				SET @nota_peso = @nota * 0.8
+			END
+			UPDATE @table SET nota1 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
 		END
-		IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
+		IF(@avaliacao = 2)
 		BEGIN
-			SET @nota_peso = @nota * 0.3
+			IF(@disc = '4213-003' OR @disc = '4213-013')
+			BEGIN
+				SET @nota_peso = @nota * 0.35
+			END
+			IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
+			BEGIN
+				SET @nota_peso = @nota * 0.5
+			END
+			IF(@disc = '4233-005')
+			BEGIN
+				SET @nota_peso = @nota * 0.333
+			END
+			IF(@disc = '5005-220')
+			BEGIN
+				SET @nota_peso = @nota * 0.2
+			END
+			UPDATE @table SET nota2 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
 		END
-		IF(@disc = '4233-005')
+		IF(@avaliacao = 3)
 		BEGIN
-			SET @nota_peso = @nota * 0.333
+			IF(@disc = '4233-005')
+			BEGIN
+				SET @nota_peso = @nota * 0.333
+			END
+			UPDATE @table SET nota3 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
 		END
-		IF(@disc = '5005-220')
+		IF(@avaliacao = 4)
 		BEGIN
-			SET @nota_peso = @nota * 0.8
+			IF(@disc = '4213-003' OR @disc = '4213-013')
+			BEGIN
+				SET @nota_peso = @nota * 0.3
+			END
+			IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
+			BEGIN
+				SET @nota_peso = @nota * 0.2
+			END
+			UPDATE @table SET nota3 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
 		END
-		UPDATE @table SET nota1 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
-	END
-	IF(@avaliacao = 2)
-	BEGIN
-		IF(@disc = '4213-003' OR @disc = '4213-013')
-		BEGIN
-			SET @nota_peso = @nota * 0.35
-		END
-		IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
-		BEGIN
-			SET @nota_peso = @nota * 0.5
-		END
-		IF(@disc = '4233-005')
-		BEGIN
-			SET @nota_peso = @nota * 0.333
-		END
-		IF(@disc = '5005-220')
-		BEGIN
-			SET @nota_peso = @nota * 0.2
-		END
-		UPDATE @table SET nota2 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
-	END
-	IF(@avaliacao = 3)
-	BEGIN
-		IF(@disc = '4233-005')
-		BEGIN
-			SET @nota_peso = @nota * 0.333
-		END
-		UPDATE @table SET nota3 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
-	END
-	IF(@avaliacao = 4)
-	BEGIN
-		IF(@disc = '4213-003' OR @disc = '4213-013')
-		BEGIN
-			SET @nota_peso = @nota * 0.3
-		END
-		IF(@disc = '4203-010' OR @disc = '4203-020' OR @disc = '4208-010' OR @disc = '4226-004')
-		BEGIN
-			SET @nota_peso = @nota * 0.2
-		END
-		UPDATE @table SET nota3 = @nota, media_final = media_final + @nota_peso WHERE RA_Aluno = @ra
-	END
 
-	SELECT @total = media_final FROM @table WHERE ra_aluno = @ra
-	SET @total = @total / 3
-	IF(@total < 6)
-	BEGIN
-		UPDATE @table SET situacao = 'Reprovado', media_final = @total WHERE RA_Aluno = @ra
-	END
-	IF(@total >= 6)
-	BEGIN
-		UPDATE @table SET situacao = 'Aprovado', media_final = @total WHERE RA_Aluno = @ra
-	END
-	FETCH NEXT FROM cursor_notas INTO @ra, @nome, @disc, @avaliacao, @nota
+		SELECT @total = media_final FROM @table WHERE ra_aluno = @ra
+		IF(@total < 6)
+		BEGIN
+			UPDATE @table SET situacao = 'Reprovado', media_final = @total WHERE RA_Aluno = @ra
+		END
+		IF(@total >= 6)
+		BEGIN
+			UPDATE @table SET situacao = 'Aprovado', media_final = @total WHERE RA_Aluno = @ra
+		END
+		FETCH NEXT FROM cursor_notas INTO @ra, @nome, @disc, @avaliacao, @nota
 	END
 	CLOSE cursor_notas
 	DEALLOCATE cursor_notas
@@ -202,151 +253,157 @@ END
 GO
 
 -- FALTAS UDF
-CREATE FUNCTION presencas(@presenca INT, @total INT)
+CREATE FUNCTION presencas(@presenca INT) -- Mostrar em tabela
 RETURNS VARCHAR(4) AS
 BEGIN
 	DECLARE @pf VARCHAR(4)
-	IF @total = 80 BEGIN
-		SELECT @pf = CONCAT(REPLICATE('F',@presenca),REPLICATE('P', 4-@presenca))
-	END
-	ELSE
+	IF @presenca = 0
 	BEGIN
-		SELECT @pf = CONCAT(REPLICATE('F',@presenca),REPLICATE('P', 2-@presenca))
+		SET @pf = 'PPPP'
 	END
-	RETURN @pf;
-END
-GO
-CREATE FUNCTION calcula_faltas(@ra CHAR(13), @disciplina VARCHAR(255))
-RETURNS INT
-AS
-BEGIN
-	DECLARE @faltas INT = 0;
-	SELECT @faltas = SUM(presenca) FROM faltas WHERE codigo_disciplina = @disciplina AND codigo_disciplina = @ra
-	RETURN @faltas;
+	IF @presenca = 1
+	BEGIN
+		SET @pf = 'FPPP'
+	END
+	IF @presenca = 2
+	BEGIN
+		SET @pf = 'FFPP'
+	END
+	IF @presenca = 3
+	BEGIN
+		SET @pf = 'FFFP'
+	END
+	IF @presenca = 4
+	BEGIN
+		SET @pf = 'FFFF'
+	END
+	RETURN @pf
 END
 GO
 CREATE FUNCTION faltas_turma(@codigo_disciplina VARCHAR(255)) 
-RETURNS @table TABLE(RA_Aluno CHAR(13), Nome_Aluno VARCHAR(255), Data1 VARCHAR(255), Data2 VARCHAR(255),
-Data3 VARCHAR(255),Data4 VARCHAR(255),Data5 VARCHAR(255),Data6 VARCHAR(255),Data7 VARCHAR(255),Data8 VARCHAR(255), 
-Data9 VARCHAR(255), Data10 VARCHAR(255), Data11 VARCHAR(255), Data12 VARCHAR(255), Data13 VARCHAR(255), Data14 VARCHAR(255), 
-Data15 VARCHAR(255), Data16 VARCHAR(255), Data17 VARCHAR(255), Data18 VARCHAR(255), Data19 VARCHAR(255), Data20 VARCHAR(255), 
-Total_Faltas INT, Debug VARCHAR(255))
+	RETURNS @table TABLE(RA_Aluno CHAR(13), Nome_Aluno VARCHAR(100), Data1 VARCHAR(4), Data2 VARCHAR(4),
+	Data3 VARCHAR(4),Data4 VARCHAR(4),Data5 VARCHAR(4),Data6 VARCHAR(4),Data7 VARCHAR(4),Data8 VARCHAR(4), 
+	Data9 VARCHAR(4), Data10 VARCHAR(4), Data11 VARCHAR(4), Data12 VARCHAR(4), Data13 VARCHAR(4), Data14 VARCHAR(4), 
+	Data15 VARCHAR(4), Data16 VARCHAR(4), Data17 VARCHAR(4), Data18 VARCHAR(4), Data19 VARCHAR(4), Data20 VARCHAR(4), 
+	Total_Faltas INT)
 AS
 BEGIN
-	DECLARE @ra CHAR(13)
-	DECLARE @name VARCHAR(255)
-	DECLARE @data DATETIME
-	DECLARE @presenca INT
-	DECLARE @num_aulas INT
-	DECLARE @pf VARCHAR(4)
-	DECLARE @total INT
+	DECLARE @ra CHAR(13), @nome VARCHAR(100), @data DATETIME, @presenca INT
+	DECLARE @num_aulas INT, @pf VARCHAR(4), @query VARCHAR(255)
+	DECLARE @total INT, @contar INT = 1, @limite INT
+
 	SELECT @num_aulas = num_aulas FROM disciplina WHERE disciplina.codigo = @codigo_disciplina
-	DECLARE @t TABLE (RA_Aluno CHAR(13), Nome_Aluno VARCHAR(255), Data1 VARCHAR(255), Data2 VARCHAR(255),Data3 VARCHAR(255),Data4 VARCHAR(255),Data5 VARCHAR(255),Data6 VARCHAR(255),Data7 VARCHAR(255),Data8 VARCHAR(255), Data9 VARCHAR(255), Data10 VARCHAR(255), Data11 VARCHAR(255), Data12 VARCHAR(255), Data13 VARCHAR(255), Data14 VARCHAR(255), Data15 VARCHAR(255), Data16 VARCHAR(255), Data17 VARCHAR(255), Data18 VARCHAR(255), Data19 VARCHAR(255), Data20 VARCHAR(255), Total_Faltas INT, Debug VARCHAR(255))
+		
+	INSERT INTO @table SELECT faltas.ra_aluno, aluno.nome, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, @num_aulas
+		FROM aluno, disciplina, faltas
+		WHERE faltas.ra_aluno = aluno.ra
+			AND faltas.codigo_disciplina = disciplina.codigo
+			AND faltas.codigo_disciplina = @codigo_disciplina
+		GROUP BY faltas.ra_aluno, aluno.nome
+
 	DECLARE cursor_faltas CURSOR
-	FOR SELECT faltas.ra_aluno, nome, data_falta, presenca 
-	FROM faltas, aluno, matricula
+	FOR SELECT faltas.ra_aluno, aluno.nome, faltas.data_falta, faltas.presenca 
+	FROM faltas, aluno, disciplina
 	WHERE faltas.ra_aluno = aluno.ra 
+		AND faltas.codigo_disciplina = disciplina.codigo
 		AND faltas.codigo_disciplina = @codigo_disciplina
-		AND matricula.ra_aluno = aluno.ra 
-		AND matricula.codigo_disciplina = @codigo_disciplina
-	ORDER BY faltas.data_falta
+	ORDER BY faltas.ra_aluno, faltas.data_falta
+
 	OPEN cursor_faltas
-	FETCH NEXT FROM cursor_faltas INTO @ra, @name, @data, @presenca
+	FETCH NEXT FROM cursor_faltas INTO @ra, @nome, @data, @presenca
 
 	WHILE @@FETCH_STATUS = 0
-	BEGIN
-	DECLARE @exists INT
-	SELECT @exists = COUNT(*) FROM @table WHERE RA_Aluno = @ra
-	INSERT INTO @t SELECT * FROM @table WHERE RA_Aluno = @ra	
-	SELECT @pf = dbo.presencas(@presenca, @num_aulas);
-	SELECT @total = dbo.calcula_faltas(@ra, @codigo_disciplina);
-	IF @exists = 0 BEGIN
-		INSERT INTO @table VALUES(@ra, @name, @pf,NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL, @total, '');
-	END
-	ELSE
-	BEGIN
-		DECLARE @col VARCHAR(255);
-		SELECT @col =  (case when Data2 is null then 'Data2'
-             when Data3 is null then 'Data3'
-             when Data4 is null then 'Data4'
-			 when Data5 is null then 'Data5'
-			 when Data6 is null then 'Data6'
-			 when Data7 is null then 'Data7'
-			 when Data8 is null then 'Data8'
-			 when Data9 is null then 'Data9'
-			 when Data10 is null then 'Data10'
-			 when Data11 is null then 'Data11'
-			 when Data12 is null then 'Data12'
-			 when Data13 is null then 'Data13'
-			 when Data14 is null then 'Data14'
-			 when Data15 is null then 'Data15'
-			 when Data16 is null then 'Data16'
-			 when Data17 is null then 'Data17'
-			 when Data18 is null then 'Data18'
-			 when Data19 is null then 'Data19'
-			 when Data20 is null then 'Data20'
-        end) FROM @table WHERE RA_Aluno = @ra;
-		UPDATE @table SET Debug = @pf;
-
-		if @col = 'Data2' BEGIN
-			UPDATE @table SET Data2 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data3' BEGIN
-			UPDATE @table SET Data3 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data4' BEGIN
-			UPDATE @table SET Data4 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data5' BEGIN
-			UPDATE @table SET Data5 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data6' BEGIN
-			UPDATE @table SET Data6 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data7' BEGIN
-			UPDATE @table SET Data7 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data8' BEGIN
-			UPDATE @table SET Data8 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data9' BEGIN
-			UPDATE @table SET Data9 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data10' BEGIN
-			UPDATE @table SET Data10 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data11' BEGIN
-			UPDATE @table SET Data11 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data12' BEGIN
-			UPDATE @table SET Data12 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data13' BEGIN
-			UPDATE @table SET Data13 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data14' BEGIN
-			UPDATE @table SET Data14 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data15' BEGIN
-			UPDATE @table SET Data15 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data16' BEGIN
-			UPDATE @table SET Data16 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data17' BEGIN
-			UPDATE @table SET Data17 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data18' BEGIN
-			UPDATE @table SET Data18 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data19' BEGIN
-			UPDATE @table SET Data19 = @pf WHERE RA_Aluno = @ra;
-		END
-		if @col = 'Data20' BEGIN
-			UPDATE @table SET Data20 = @pf WHERE RA_Aluno = @ra;
-		END
-	END
-	FETCH NEXT FROM cursor_faltas INTO @ra, @name, @data, @presenca
+		BEGIN
+		SET @contar = 1
+		SELECT @limite = COUNT(ra_aluno) FROM faltas WHERE ra_aluno = @ra
+		WHILE @contar <= @limite AND @@FETCH_STATUS = 0
+			BEGIN
+			SELECT @pf = dbo.presencas(@presenca)
+			IF @contar = 1
+			BEGIN
+				UPDATE @table SET Data1 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 2
+			BEGIN
+				UPDATE @table SET Data2 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 3
+			BEGIN
+				UPDATE @table SET Data3 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 4
+			BEGIN
+				UPDATE @table SET Data4 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 5
+			BEGIN
+				UPDATE @table SET Data5 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 6
+			BEGIN
+				UPDATE @table SET Data6 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 7
+			BEGIN
+				UPDATE @table SET Data7 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 8
+			BEGIN
+				UPDATE @table SET Data8 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 9
+			BEGIN
+				UPDATE @table SET Data9 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 10
+			BEGIN
+				UPDATE @table SET Data10 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 11
+			BEGIN
+				UPDATE @table SET Data11 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 12
+			BEGIN
+				UPDATE @table SET Data12 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 13
+			BEGIN
+				UPDATE @table SET Data13 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 14
+			BEGIN
+				UPDATE @table SET Data14 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 15
+			BEGIN
+				UPDATE @table SET Data15 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 16
+			BEGIN
+				UPDATE @table SET Data16 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 17
+			BEGIN
+				UPDATE @table SET Data17 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 18
+			BEGIN
+				UPDATE @table SET Data18 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 19
+			BEGIN
+				UPDATE @table SET Data19 = @pf WHERE RA_Aluno = @ra
+			END
+			IF @contar = 20
+			BEGIN
+				UPDATE @table SET Data20 = @pf WHERE RA_Aluno = @ra
+			END
+			UPDATE @table SET Total_Faltas = Total_Faltas - @presenca WHERE RA_Aluno = @ra
+			FETCH NEXT FROM cursor_faltas INTO @ra, @nome, @data, @presenca
+			SET @contar = @contar + 1
+		END		
 	END
 	CLOSE cursor_faltas
 	DEALLOCATE cursor_faltas
