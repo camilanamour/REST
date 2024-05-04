@@ -1,3 +1,3 @@
-# Spring
+# SpringBoot :stuck_out_tongue_winking_eye:
 
-Um sistema de como utilizar o Spring em Java.
+Um sistema desenvolvido em SpringBoot em Java.
